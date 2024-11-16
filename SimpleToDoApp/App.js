@@ -11,6 +11,7 @@ import {
 export default function App() {
   const [task, setTask] = useState('');
   const [tasks, setTasks] = useState([]);
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
   const addTask = () => {
     if (task.trim()) {
@@ -29,6 +30,19 @@ export default function App() {
     ));
   };
 
+  const startEditing = (taskId, taskText) => {
+    setEditingTaskId(taskId);
+    setTask(taskText);
+  };
+
+  const saveTask = () => {
+    setTasks(tasks.map((taskItem) =>
+      taskItem.id === editingTaskId ? { ...taskItem, text: task } : taskItem
+    ));
+    setEditingTaskId(null);
+    setTask('');
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Simple To-Do List</Text>
@@ -39,8 +53,8 @@ export default function App() {
           value={task}
           onChangeText={(text) => setTask(text)}
         />
-        <TouchableOpacity style={styles.addButton} onPress={addTask}>
-          <Text style={styles.addButtonText}>+</Text>
+        <TouchableOpacity style={styles.addButton} onPress={editingTaskId ? saveTask : addTask}>
+          <Text style={styles.addButtonText}>{editingTaskId ? '✓' : '+'}</Text>
         </TouchableOpacity>
       </View>
       <FlatList
@@ -50,22 +64,24 @@ export default function App() {
             style={[
               styles.taskContainer,
               item.completed && {
-                borderStyle: 'dotted',  // Dotted border for completed tasks
-                borderWidth: 2,         // Border width to make the dotted line visible
-                borderColor: '#FFA580', // light orange color for the dotted line
+                borderStyle: 'dotted', // Dotted border for completed tasks
+                borderWidth: 2, // Border width to make the dotted line visible
+                borderColor: '#FFA580', // Light orange color for the dotted line
               },
             ]}
           >
-            <Text
-              style={[
-                styles.taskText,
-                item.completed && { color: '#888', textTransform: 'uppercase', textShadowColor: '#3A6EA5', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 } // Glow effect
-              ]}
-            >
-              {item.text}
-            </Text>
+            <TouchableOpacity onPress={() => startEditing(item.id, item.text)}>
+              <Text
+                style={[
+                  styles.taskText,
+                  item.completed && { color: '#888', textTransform: 'uppercase', textShadowColor: '#3A6EA5', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 } // Glow effect
+                ]}
+              >
+                {item.text}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => toggleComplete(item.id)}>
-              <Text style={styles.completeButton}>{item.completed ? '✓' : 'Mark as Complete'}</Text>
+              <Text style={styles.completeButton}>{item.completed ? 'InComplete' : 'Complete'}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => deleteTask(item.id)}>
               <Text style={styles.deleteButton}>X</Text>
