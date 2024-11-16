@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,13 +6,49 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  Animated
+  Animated,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
   const [task, setTask] = useState('');
   const [tasks, setTasks] = useState([]);
   const [editingTaskId, setEditingTaskId] = useState(null);
+
+  // Load tasks from AsyncStorage on app start
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const storedTasks = await AsyncStorage.getItem('tasks');
+        if (storedTasks) {
+          const parsedTasks = JSON.parse(storedTasks).map((task) => ({
+            ...task,
+            slideAnim: new Animated.Value(0),
+            opacityAnim: new Animated.Value(1),
+          }));
+          setTasks(parsedTasks);
+        }
+      } catch (error) {
+        console.error('Failed to load tasks:', error);
+      }
+    };
+
+    loadTasks();
+  }, []);
+
+  // Save tasks to AsyncStorage whenever tasks change
+  useEffect(() => {
+    const saveTasks = async () => {
+      try {
+        const serializableTasks = tasks.map(({ slideAnim, opacityAnim, ...task }) => task);
+        await AsyncStorage.setItem('tasks', JSON.stringify(serializableTasks));
+      } catch (error) {
+        console.error('Failed to save tasks:', error);
+      }
+    };
+
+    saveTasks();
+  }, [tasks]);
 
   // Add new task with fade-in animation
   const addTask = () => {
@@ -21,20 +57,19 @@ export default function App() {
         id: Date.now().toString(),
         text: task,
         completed: false,
-        slideAnim: new Animated.Value(300), // Start position (off-screen to the right)
-        opacityAnim: new Animated.Value(0),  // Start as invisible
+        slideAnim: new Animated.Value(300),
+        opacityAnim: new Animated.Value(0),
       };
 
-      // Slide in and fade in animation
       Animated.parallel([
         Animated.spring(newTask.slideAnim, {
-          toValue: 0, // Move to the left side
+          toValue: 0,
           friction: 5,
           useNativeDriver: true,
         }),
         Animated.timing(newTask.opacityAnim, {
-          toValue: 1, // Fade in
-          duration: 5000, // Fade in duration is now 5 seconds
+          toValue: 1,
+          duration: 500,
           useNativeDriver: true,
         }),
       ]).start();
@@ -46,27 +81,27 @@ export default function App() {
 
   // Delete task with fade-out animation
   const deleteTask = (taskId) => {
-    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    const taskIndex = tasks.findIndex((task) => task.id === taskId);
     const taskToDelete = tasks[taskIndex];
 
-    // Fade out animation
     Animated.timing(taskToDelete.opacityAnim, {
-      toValue: 0, // Fade out
-      duration: 5000, // Fade out duration is now 5 seconds
+      toValue: 0,
+      duration: 500,
       useNativeDriver: true,
     }).start();
 
-    // After the animation, remove the task from the list
     setTimeout(() => {
       setTasks(tasks.filter((item) => item.id !== taskId));
-    }, 5000); // Wait for the fade-out animation to complete before removing the task
+    }, 500);
   };
 
   // Toggle task completion
   const toggleComplete = (taskId) => {
-    setTasks(tasks.map((task) =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    setTasks(
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
   };
 
   // Start editing the task
@@ -81,23 +116,18 @@ export default function App() {
       taskItem.id === editingTaskId ? { ...taskItem, text: task } : taskItem
     );
 
-    // Find the task to edit
-    const taskToEdit = updatedTasks.find(task => task.id === editingTaskId);
+    const taskToEdit = updatedTasks.find((task) => task.id === editingTaskId);
+    taskToEdit.slideAnim.setValue(300);
 
-    // Reset the slide animation to its off-screen position
-    taskToEdit.slideAnim.setValue(300); // Reset slide position to off-screen to the right
-
-    // Apply slide-in effect when saving edited task
     Animated.timing(taskToEdit.slideAnim, {
-      toValue: 0, // Move to the normal position
-      duration: 500, // Adjust duration for slide-in
+      toValue: 0,
+      duration: 500,
       useNativeDriver: true,
     }).start();
 
-    // Apply fade-in for the task
     Animated.timing(taskToEdit.opacityAnim, {
-      toValue: 1, // Ensure it fades in
-      duration: 500, // Adjust duration for fade-in
+      toValue: 1,
+      duration: 500,
       useNativeDriver: true,
     }).start();
 
@@ -116,7 +146,10 @@ export default function App() {
           value={task}
           onChangeText={(text) => setTask(text)}
         />
-        <TouchableOpacity style={styles.addButton} onPress={editingTaskId ? saveTask : addTask}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={editingTaskId ? saveTask : addTask}
+        >
           <Text style={styles.addButtonText}>{editingTaskId ? '✓' : '+'}</Text>
         </TouchableOpacity>
       </View>
@@ -132,12 +165,14 @@ export default function App() {
                 borderColor: '#FFA580',
               },
               {
-                transform: [{ translateX: item.slideAnim }], // Apply slide animation
-                opacity: item.opacityAnim, // Apply fade-in/fade-out animation
-              }
+                transform: [{ translateX: item.slideAnim }],
+                opacity: item.opacityAnim,
+              },
             ]}
           >
-            <TouchableOpacity onPress={() => startEditing(item.id, item.text)}>
+            <TouchableOpacity
+              onPress={() => startEditing(item.id, item.text)}
+            >
               <Text
                 style={[
                   styles.taskText,
@@ -147,7 +182,7 @@ export default function App() {
                     textShadowColor: '#3A6EA5',
                     textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 3,
-                  }
+                  },
                 ]}
               >
                 {item.text}
